@@ -16,7 +16,6 @@
 - **Windows only** (for now)
 - [Python](https://www.python.org/downloads/)
 - [z](https://github.com/vincpa/z) (must be installed and available in your PATH)
-- [`sv_ttk`](https://pypi.org/project/sv-ttk/) (`pip install sv-ttk`)
 
 ## Installation
 
@@ -65,10 +64,22 @@ Just double-click `visualz.pyw` to launch the search window.
 ## Usage
 
 - **Type to search:** Start typing a folder name; results appear instantly based on z algorithm.
-- **Navigate:** Use Tab or Down to cycle through results.
+- **Navigate:** Use Tab or Shift+Tab to cycle through results.
 - **Open:** Press Enter to open the selected folder in Explorer.
 - **Add directory:** Select "Add directory to z" to add a new folder to the z history.
 - **Close:** Press Escape or click the close button.
+
+## Theming
+VisualZ uses a custom color palette for a modern look. You can modify the `themePalette` class in `visualz.pyw` to change colors:
+
+```python
+class themePalette:
+    dominant = "#113F67"
+    accent = "#FDF5AA"
+    secondary = "#34699A"
+```
+
+You can take inspiration from [Color Hunt](https://colorhunt.co/) for color combinations.
 
 ## Notes
 

@@ -5,9 +5,18 @@ from tkinter import filedialog
 import subprocess
 import os
 
-import sv_ttk
 import threading, queue, time
-import pprint
+
+
+# https://colorhunt.co/
+class themePalette:
+    # dominant = "#14354D"
+    # accent = "#EA5B6F"
+    # secondary = "#FFCB61"
+    
+    dominant = "#113F67"
+    accent = "#FDF5AA"
+    secondary = "#34699A"
         
 class PowerShellSession:
     def __init__(self):
@@ -92,16 +101,20 @@ def list_files(query):
         ps_command = f'z {query} -ListFiles'
         lines = ps_session.run_command(ps_command)
         valid_paths = []
+        occ = []
         
         for line in lines:
             line = line.strip()
             
+            n_occurrences = line.split(" ", 1)[0]
             part = line.split(" ", 1)[-1]  # Get the part after the first space
             part = part[:-19]
             part.strip()  # Remove any trailing spaces
             
             if os.path.exists(part):
+                occ.append(int(n_occurrences))
                 valid_paths.append(part)
+                
         valid_paths.append("Add directory to z")  # Add "Add directory to z manually" option
         return valid_paths
         
@@ -127,10 +140,14 @@ class VisualZApp(tk.Tk):
         self.geometry("500x150")
         self.overrideredirect(True)  # Remove native title bar
         self.attributes('-topmost', True)  # Keep window always on top
-        self.configure(bg="#161A20")
-        # self.style = ttk.Style(self)
-        sv_ttk.use_dark_theme()
-        
+        self.configure(bg=themePalette.dominant, highlightthickness=3, highlightcolor=themePalette.accent)
+        self.bind("<FocusOut>", lambda e: self.destroy()) # Destroy window if it loses focus
+
+        s = ttk.Style()
+        s.theme_use("clam")
+        s.configure("TEntry", foreground=themePalette.dominant, fieldbackground=themePalette.accent, font=("Cascadia Mono", 12))
+        s.configure("TLabel", background=themePalette.dominant, foreground=themePalette.accent, font=("Segoe UI", 11, "bold"))
+
         # Center window on screen
         self.update_idletasks()
         w = self.winfo_width()
@@ -141,49 +158,57 @@ class VisualZApp(tk.Tk):
         y = (hs // 2) - (h // 2)
         self.geometry(f"{w}x{h}+{x}+{y}")
 
-        # Custom title bar
-        title_bar = tk.Frame(self, bg="#222831", relief="raised", bd=0, height=28)
-        title_bar.pack(fill=tk.X, side=tk.TOP)
+        # Custom title bar, uncomment if you want a custom title bar
+        # title_bar = tk.Frame(self, relief="raised", bd=0, height=28, bg=themePalette.secondary)
+        # title_bar.pack(fill=tk.X, side=tk.TOP)
 
-        title_label = tk.Label(title_bar, text="VisualZ Search", bg="#222831", fg="#ececec", font=("Segoe UI", 11, "bold"))
-        title_label.pack(side=tk.LEFT, padx=10)
+        # title_label = tk.Label(title_bar, text="VisualZ Search", font=("Segoe UI", 11, "bold"),
+        #                       bg=themePalette.secondary, fg=themePalette.accent)
+        # title_label.pack(side=tk.LEFT, padx=10)
 
-        btn_close = tk.Button(title_bar, text="✕", bg="#222831", fg="#ececec", bd=0, font=("Segoe UI", 10), command=self.destroy)
-        btn_close.pack(side=tk.RIGHT, padx=2)
+        # btn_close = tk.Button(title_bar, text="✕", bd=0, font=("Segoe UI", 10),
+        #                      command=self.destroy, bg=themePalette.secondary, fg=themePalette.accent,
+        #                      activebackground=themePalette.accent, activeforeground=themePalette.main)
+        # btn_close.pack(side=tk.RIGHT, padx=2)
 
         # Allow window dragging
-        def start_move(event):
-            self.x = event.x
-            self.y = event.y
-        def stop_move(event):
-            self.x = None
-            self.y = None
-        def do_move(event):
-            x = self.winfo_pointerx() - self.x
-            y = self.winfo_pointery() - self.y
-            self.geometry(f"+{x}+{y}")
+        # def start_move(event):
+        #     self.x = event.x
+        #     self.y = event.y
+        # def stop_move(event):
+        #     self.x = None
+        #     self.y = None
+        # def do_move(event):
+        #     x = self.winfo_pointerx() - self.x
+        #     y = self.winfo_pointery() - self.y
+        #     self.geometry(f"+{x}+{y}")
 
-        title_bar.bind("<ButtonPress-1>", start_move)
-        title_bar.bind("<ButtonRelease-1>", stop_move)
-        title_bar.bind("<B1-Motion>", do_move)
+        # title_bar.bind("<ButtonPress-1>", start_move)
+        # title_bar.bind("<ButtonRelease-1>", stop_move)
+        # title_bar.bind("<B1-Motion>", do_move)
 
         self.search_var = tk.StringVar()
-        self.entry = ttk.Entry(self, textvariable=self.search_var, width=40)
-        self.entry.pack(pady=5)
+        self.entry = ttk.Entry(self, textvariable=self.search_var, width=40, style="TEntry", font=("Cascadia Mono", 12))
+        self.entry.pack(pady=15)
         self.entry.focus()
 
-        #make the listbox dark themed
-        self.listbox = tk.Listbox(self, font=("Cascadia Mono", 12), height=3, bg="#393e46", fg="#ececec", selectbackground="#005d82", selectforeground="#222831", bd=0, highlightthickness=0)
+        # Make the listbox dark themed
+        self.listbox = tk.Listbox(self, font=("Cascadia Mono", 12), height=3, bd=0, highlightthickness=0,
+                                  bg=themePalette.secondary, fg=themePalette.accent,
+                                  selectbackground=themePalette.accent, selectforeground=themePalette.dominant,
+                                  activestyle="none")
         self.listbox.pack(fill=tk.X, padx=20)
         self.listbox.pack_forget()  # Hide initially
 
         self.search_var.trace_add('write', self.on_search)
         self.entry.bind("<Down>", self.focus_listbox)
         self.entry.bind("<Tab>", self.select_next)
+        self.entry.bind("<Shift-Tab>", self.select_previous)
         self.entry.bind("<Return>", self.open_selected)
         self.entry.bind("<Escape>", lambda e: self.destroy())
         self.listbox.bind("<Return>", self.open_selected)
         self.listbox.bind("<Tab>", self.select_next)
+        self.listbox.bind("<Shift-Tab>", self.select_previous)
         self.listbox.bind("<Double-Button-1>", self.open_selected)
         self.listbox.bind("<Escape>", lambda e: self.destroy())
 
@@ -201,7 +226,7 @@ class VisualZApp(tk.Tk):
                     display_item = os.path.splitdrive(item)[0] + os.sep + item.split(os.sep)[1].strip() + os.sep + "..." + os.sep + item.split(os.sep)[-2].strip() + os.sep + os.path.basename(item)
                 else:
                     display_item = item
-            self.listbox.insert(tk.END, display_item)
+            self.listbox.insert(tk.END, " " + display_item)
             # self.listbox.insert(tk.END, item)
         if self.results:
             self.listbox.pack(fill=tk.X, padx=20)
@@ -221,6 +246,19 @@ class VisualZApp(tk.Tk):
             lb = self.listbox
             cur = lb.curselection()
             next_idx = (cur[0] + 1) % len(self.results) if cur else 0
+            lb.selection_clear(0, tk.END)
+            lb.selection_set(next_idx)
+            lb.activate(next_idx)
+            lb.see(next_idx)
+        return "break"
+
+    def select_previous(self, event):
+        if self.results:
+            lb = self.listbox
+            cur = lb.curselection()
+            next_idx = (cur[0] - 1) if cur else 0
+            if next_idx < 0:
+                next_idx = len(self.results) - 1
             lb.selection_clear(0, tk.END)
             lb.selection_set(next_idx)
             lb.activate(next_idx)
@@ -247,6 +285,7 @@ if __name__ == "__main__":
     ps_session = PowerShellSession()
     
     app = VisualZApp()
+    app.on_search()  # Trigger initial search to populate listbox
     app.mainloop()
     
     ps_session.close()
