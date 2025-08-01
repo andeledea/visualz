@@ -88,6 +88,15 @@ class ZoxideDB:
     def _prune(self):
         """
         Remove entries that do not exist and are older than 90 days.
+        UNUSED - This function is not called in the current implementation read the note below.
+        
+        Note
+        ----
+        It is important to not prune entries too aggressively, as this can lead to loss of useful data.
+        For example if google drive is not mounted the prune function will remove all entries that are 
+        not currently mounted and then the user will not be able to access them even when they mount the drive again.
+        The deleted directories that are still present in the database will be removed by the _age function
+        this is sub optimal but it is better than losing data.
         """
         cutoff = self._now() - 90 * 86400
         self.entries = [
@@ -177,15 +186,20 @@ class ZoxideDB:
         -------
         list of dict
             Matching entries sorted by frecency.
+            
+        Notes
+        -----
+        This method only returns existing paths (so only paths that are currently mounted).
+        If the path does not exist, it will not be included in the results.
         """
-        self._prune()
+        # self._prune()  # Uncomment to enable pruning (IMPORTANT: read note in _prune)
         self._age()
         results = [
             (self._frecency(e), e)
             for e in self.entries if self._match(e, query)
         ]
         results.sort(reverse=True, key=lambda x: x[0])
-        return [e for _, e in results]
+        return [e for _, e in results if os.path.exists(e["path"])]
 
     def select(self, path):
         """

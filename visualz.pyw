@@ -18,7 +18,7 @@ db = ZoxideDB("zoxide_db.json")
 def list_files(query):
     try:
         results = db.search(query)
-        valid_paths = [entry["path"] for entry in results if os.path.exists(entry["path"])]
+        valid_paths = [entry["path"] for entry in results]
         valid_paths.append("Add directory to z")
         return valid_paths
     except Exception:
