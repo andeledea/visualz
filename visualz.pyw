@@ -2,154 +2,57 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 
-import subprocess
 import os
 
-import threading, queue, time
-
+from zoxide import ZoxideDB
 
 # https://colorhunt.co/
 class themePalette:
-    # dominant = "#14354D"
-    # accent = "#EA5B6F"
-    # secondary = "#FFCB61"
-    
     dominant = "#113F67"
     accent = "#FDF5AA"
     secondary = "#34699A"
-        
-class PowerShellSession:
-    def __init__(self):
-        self.proc = subprocess.Popen(
-            ["powershell", "-NoProfile", "-NoExit", "-WindowStyle", "Hidden"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            universal_newlines=True
-        )
-        # check if the process started successfully
-        if self.proc is None:
-            raise RuntimeError("Failed to start PowerShell process.")
-        
-        self.output_queue = queue.Queue()
-        self.delimiter = "END_OF_COMMAND_OUTPUT_VISUALZ" # Unique delimiter
 
-        # Start a separate thread to read stdout
-        self.stdout_thread = threading.Thread(target=self._read_stdout)
-        self.stdout_thread.daemon = True # Thread will exit when main program exits
-        self.stdout_thread.start()
-
-        # Give PowerShell a moment to initialize and display its first prompt
-        time.sleep(0.5)
-        # Clear any initial output/prompt from the queue
-        while not self.output_queue.empty():
-            try:
-                self.output_queue.get_nowait()
-            except queue.Empty:
-                break
-
-    def _read_stdout(self):
-        while True:
-            try:
-                line = self.proc.stdout.readline()
-                if line:
-                    self.output_queue.put(line)
-                else:
-                    break # stdout closed
-            except ValueError:
-                break # stdin/stdout/stderr pipes are closed
-
-    def run_command(self, command):
-        # Send the command followed by the delimiter
-        self.proc.stdout.flush()  # Ensure stdout is flushed before writing
-        self.proc.stdin.write(command + "\n")
-        self.proc.stdin.write(f'echo "{self.delimiter}"\n') # Echo the delimiter
-        self.proc.stdin.flush()
-
-        output = []
-        while True:
-            try:
-                line = self.output_queue.get(timeout=5) # Add a timeout to prevent infinite waiting
-                line_stripped = line.strip()
-                print(line_stripped)  # Print the line to console for debugging
-                if line_stripped == self.delimiter:
-                    break # Found the delimiter, command output has ended
-                if line_stripped: # Only add non-empty lines that are not the delimiter
-                    output.append(line_stripped)
-            except queue.Empty:
-                print("Timeout waiting for command output or delimiter.")
-                break # Timeout, something went wrong or command took too long
-            except Exception as e:
-                print(f"Error reading from queue: {e}")
-                break
-        return output
-
-    def close(self):
-        if self.proc.poll() is None: # Check if process is still running
-            try:
-                self.proc.stdin.write("exit\n")
-                self.proc.stdin.flush()
-                self.proc.terminate()
-                self.proc.wait(timeout=5) # Wait for the process to terminate
-            except Exception as e:
-                print(f"Error closing PowerShell session: {e}")
+# Initialize ZoxideDB
+db = ZoxideDB("zoxide_db.json")
 
 def list_files(query):
     try:
-        ps_command = f'z {query} -ListFiles'
-        lines = ps_session.run_command(ps_command)
-        valid_paths = []
-        
-        for line in lines:
-            line = line.strip()
-            # print(line)
-            
-            n_occurrences = line.split(" ", 1)[0]
-            part = line.split(" ", 1)[-1]  # Get the part after the first space
-            part = part[:-19]
-            part.strip()  # Remove any trailing spaces
-            
-            if os.path.exists(part):
-                valid_paths.append(part)
-                
-        valid_paths.append("Add directory to z")  # Add "Add directory to z manually" option
+        results = db.search(query)
+        valid_paths = [entry["path"] for entry in results if os.path.exists(entry["path"])]
+        valid_paths.append("Add directory to z")
         return valid_paths
-        
     except Exception:
-        print("Error executing z command or processing output.")
+        print("Error searching zoxide database.")
         return []
 
 def open_in_explorer(path):
-    # Open Windows Explorer at the given path
     os.startfile(path)
-    
+
 def add_to_z(path):
     try:
-        print(f"Adding {path} to z...")
-        ps_command = f'z {path}'
-        ps_session.run_command(ps_command)
+        if path and os.path.exists(path):
+            db.add(path)
+            print(f"Added {path} to zoxide database.")
+        else:
+            print("Invalid path, not added.")
     except Exception as e:
-        print(f"Error adding path to z: {e}")
+        print(f"Error adding path to zoxide: {e}")
 
 class VisualZApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("VisualZ Search")
         self.geometry("500x150")
-        self.overrideredirect(True)  # Remove native title bar
-        self.attributes('-topmost', True)  # Keep window always on top
+        self.overrideredirect(True)
+        self.attributes('-topmost', True)
         self.configure(bg=themePalette.dominant, highlightthickness=3, highlightcolor=themePalette.accent)
-        self.bind("<FocusOut>", lambda e: self.focus_destroy()) # Destroy window if it loses focus
+        self.bind("<FocusOut>", lambda e: self.focus_destroy())
 
         s = ttk.Style()
         s.theme_use("clam")
         s.configure("TEntry", foreground=themePalette.dominant, fieldbackground=themePalette.accent, font=("Cascadia Mono", 12))
         s.configure("TLabel", background=themePalette.dominant, foreground=themePalette.accent, font=("Segoe UI", 11, "bold"))
 
-        # Center window on screen
         self.update_idletasks()
         w = self.winfo_width()
         h = self.winfo_height()
@@ -159,47 +62,17 @@ class VisualZApp(tk.Tk):
         y = (hs // 2) - (h // 2)
         self.geometry(f"{w}x{h}+{x}+{y}")
 
-        # Custom title bar, uncomment if you want a custom title bar
-        # title_bar = tk.Frame(self, relief="raised", bd=0, height=28, bg=themePalette.secondary)
-        # title_bar.pack(fill=tk.X, side=tk.TOP)
-
-        # title_label = tk.Label(title_bar, text="VisualZ Search", font=("Segoe UI", 11, "bold"),
-        #                       bg=themePalette.secondary, fg=themePalette.accent)
-        # title_label.pack(side=tk.LEFT, padx=10)
-
-        # btn_close = tk.Button(title_bar, text="✕", bd=0, font=("Segoe UI", 10),
-        #                      command=self.destroy, bg=themePalette.secondary, fg=themePalette.accent,
-        #                      activebackground=themePalette.accent, activeforeground=themePalette.main)
-        # btn_close.pack(side=tk.RIGHT, padx=2)
-
-        # Allow window dragging
-        # def start_move(event):
-        #     self.x = event.x
-        #     self.y = event.y
-        # def stop_move(event):
-        #     self.x = None
-        #     self.y = None
-        # def do_move(event):
-        #     x = self.winfo_pointerx() - self.x
-        #     y = self.winfo_pointery() - self.y
-        #     self.geometry(f"+{x}+{y}")
-
-        # title_bar.bind("<ButtonPress-1>", start_move)
-        # title_bar.bind("<ButtonRelease-1>", stop_move)
-        # title_bar.bind("<B1-Motion>", do_move)
-
         self.search_var = tk.StringVar()
         self.entry = ttk.Entry(self, textvariable=self.search_var, width=40, style="TEntry", font=("Cascadia Mono", 12))
         self.entry.pack(pady=15)
         self.entry.focus()
 
-        # Make the listbox dark themed
         self.listbox = tk.Listbox(self, font=("Cascadia Mono", 12), height=3, bd=0, highlightthickness=0,
                                   bg=themePalette.secondary, fg=themePalette.accent,
                                   selectbackground=themePalette.accent, selectforeground=themePalette.dominant,
                                   activestyle="none")
         self.listbox.pack(fill=tk.X, padx=20)
-        self.listbox.pack_forget()  # Hide initially
+        self.listbox.pack_forget()
 
         self.search_var.trace_add('write', self.on_search)
         self.entry.bind("<Down>", self.focus_listbox)
@@ -214,21 +87,32 @@ class VisualZApp(tk.Tk):
         self.listbox.bind("<Escape>", lambda e: self.destroy())
 
         self.results = []
+        
+    def _path_to_display(self, path):
+        if len(path.split(os.sep)) > 4:
+            parts = path.split(os.sep)
+            drive = os.path.splitdrive(path)[0]
+            first = parts[1].strip()
+            last = parts[-2].strip()
+            if len(first) > 10:
+                first = first[:4] + ".."
+            if len(last) > 10:
+                last = last[:4] + ".."
+            return f"{drive}{os.sep}{first}{os.sep}...{os.sep}{last}{os.sep}{os.path.basename(path)}"
+        else:
+            return path
 
     def on_search(self, *args):
         query = self.search_var.get()
         self.results = list_files(query)
         self.listbox.delete(0, tk.END)
         for item in self.results:
-            if item == "Add directory to z": display_item = "Add directory to z"
+            if item == "Add directory to z":
+                display_item = "Add directory to z"
             else:
-                # if the item has more than 4 parts, display only the first two and last two parts
-                if len(item.split(os.sep)) > 4:
-                    display_item = os.path.splitdrive(item)[0] + os.sep + item.split(os.sep)[1].strip() + os.sep + "..." + os.sep + item.split(os.sep)[-2].strip() + os.sep + os.path.basename(item)
-                else:
-                    display_item = item
+                display_item = self._path_to_display(item)
+                
             self.listbox.insert(tk.END, " " + display_item)
-            # self.listbox.insert(tk.END, item)
         if self.results:
             self.listbox.pack(fill=tk.X, padx=20)
             self.listbox.selection_clear(0, tk.END)
@@ -273,16 +157,13 @@ class VisualZApp(tk.Tk):
             idx = cur[0] if cur else 0
             path = self.results[idx]
             if path == "Add directory to z":
-                # If "Add directory to z" is selected, open a tk selectfolder dialog
                 path = filedialog.askdirectory(title="Add directory to z")
-            
             path = path.strip()
             add_to_z(path)
             open_in_explorer(path)
-            
-        self.destroy()  # Close the app after opening the path
+        self.destroy()
         return "break"
-    
+
     def focus_destroy(self):
         if self.results:
             lb = self.listbox
@@ -294,10 +175,6 @@ class VisualZApp(tk.Tk):
         self.destroy()
 
 if __name__ == "__main__":
-    ps_session = PowerShellSession()
-    
     app = VisualZApp()
     app.on_search()  # Trigger initial search to populate listbox
     app.mainloop()
-    
-    ps_session.close()
