@@ -101,7 +101,6 @@ def list_files(query):
         ps_command = f'z {query} -ListFiles'
         lines = ps_session.run_command(ps_command)
         valid_paths = []
-        occ = []
         
         for line in lines:
             line = line.strip()
@@ -112,7 +111,6 @@ def list_files(query):
             part.strip()  # Remove any trailing spaces
             
             if os.path.exists(part):
-                occ.append(int(n_occurrences))
                 valid_paths.append(part)
                 
         valid_paths.append("Add directory to z")  # Add "Add directory to z manually" option
@@ -141,7 +139,7 @@ class VisualZApp(tk.Tk):
         self.overrideredirect(True)  # Remove native title bar
         self.attributes('-topmost', True)  # Keep window always on top
         self.configure(bg=themePalette.dominant, highlightthickness=3, highlightcolor=themePalette.accent)
-        self.bind("<FocusOut>", lambda e: self.destroy()) # Destroy window if it loses focus
+        self.bind("<FocusOut>", lambda e: self.focus_destroy()) # Destroy window if it loses focus
 
         s = ttk.Style()
         s.theme_use("clam")
@@ -280,6 +278,16 @@ class VisualZApp(tk.Tk):
             
             self.destroy()  # Close the app after opening the path
         return "break"
+    
+    def focus_destroy(self):
+        if self.results:
+            lb = self.listbox
+            cur = lb.curselection()
+            idx = cur[0] if cur else 0
+            path = self.results[idx]
+            if path == "Add directory to z":
+                return
+        self.destroy()
 
 if __name__ == "__main__":
     ps_session = PowerShellSession()
