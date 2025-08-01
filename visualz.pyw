@@ -74,6 +74,7 @@ class PowerShellSession:
             try:
                 line = self.output_queue.get(timeout=5) # Add a timeout to prevent infinite waiting
                 line_stripped = line.strip()
+                print(line_stripped)  # Print the line to console for debugging
                 if line_stripped == self.delimiter:
                     break # Found the delimiter, command output has ended
                 if line_stripped: # Only add non-empty lines that are not the delimiter
@@ -104,6 +105,7 @@ def list_files(query):
         
         for line in lines:
             line = line.strip()
+            # print(line)
             
             n_occurrences = line.split(" ", 1)[0]
             part = line.split(" ", 1)[-1]  # Get the part after the first space
@@ -126,6 +128,7 @@ def open_in_explorer(path):
     
 def add_to_z(path):
     try:
+        print(f"Adding {path} to z...")
         ps_command = f'z {path}'
         ps_session.run_command(ps_command)
     except Exception as e:
@@ -273,10 +276,11 @@ class VisualZApp(tk.Tk):
                 # If "Add directory to z" is selected, open a tk selectfolder dialog
                 path = filedialog.askdirectory(title="Add directory to z")
             
+            path = path.strip()
             add_to_z(path)
             open_in_explorer(path)
             
-            self.destroy()  # Close the app after opening the path
+        self.destroy()  # Close the app after opening the path
         return "break"
     
     def focus_destroy(self):
