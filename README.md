@@ -2,6 +2,10 @@
 
 **VisualZ** is a fast, beautiful search interface for your directories using a Python implementation of the `z` algorithm. It provides a minimal, always-on-top window with a search bar and dropdown for quick navigation to your most-used folders.
 
+<p align="center">
+<img width="496" height="204" alt="image" src="https://github.com/user-attachments/assets/cc245705-e962-4f1a-91ec-f85f3e4442bb" />
+</p>
+
 ## Features
 
 * **Instant search:** As you type, VisualZ's internal algorithm finds and shows matching directories from your history.
@@ -41,7 +45,7 @@
 * For the location, enter:
 
   ```
-  pythonw.exe "C:\Users\l.ribotta\Documents\visualz\visualz.pyw"
+  pythonw.exe "X:/path/to/visualz.pyw"
   ```
 
   *(Adjust the path as needed.)*
