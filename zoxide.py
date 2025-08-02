@@ -33,6 +33,7 @@ class ZoxideDB:
     def _load(self):
         """
         Load entries from the database file.
+        Entries are in the format: [path, score, last_access].
         """
         if os.path.exists(self.db_path):
             with open(self.db_path, "r", encoding="utf-8") as f:
@@ -72,8 +73,8 @@ class ZoxideDB:
         float
             Calculated frecency score.
         """
-        score = entry["score"]
-        last = entry["last_access"]
+        score = entry[1]
+        last = entry[2]
         now = self._now()
         delta = now - last
         if delta < 3600:         # within the last hour
@@ -101,19 +102,19 @@ class ZoxideDB:
         cutoff = self._now() - 90 * 86400
         self.entries = [
             e for e in self.entries
-            if os.path.exists(e["path"]) or e["last_access"] > cutoff
+            if os.path.exists(e[0]) or e[2] > cutoff
         ]
 
     def _age(self):
         """
         Age entries if total score exceeds max_age.
         """
-        total = sum(e["score"] for e in self.entries)
+        total = sum(e[1] for e in self.entries)
         if total > self.max_age:
             k = total / (self.max_age * 0.9)
             for e in self.entries:
-                e["score"] = max(1, int(e["score"] / k))
-            self.entries = [e for e in self.entries if e["score"] >= 1]
+                e[1] = max(1, int(e[1] / k))
+            self.entries = [e for e in self.entries if e[1] >= 1]
 
     def add(self, path):
         """
@@ -127,12 +128,12 @@ class ZoxideDB:
         path = os.path.abspath(path)
         now = self._now()
         for e in self.entries:
-            if e["path"].lower() == path.lower():
-                e["score"] += 1
-                e["last_access"] = now
+            if e[0].lower() == path.lower():
+                e[1] += 1
+                e[2] = now
                 self._save()
                 return
-        self.entries.append({"path": path, "score": 1, "last_access": now})
+        self.entries.append([path, 1, now])  # [path, score, last_access]
         self._save()
 
     def _match(self, entry, query):
@@ -155,7 +156,7 @@ class ZoxideDB:
         if not query.strip():
             return True
         
-        path = entry["path"].lower()
+        path = entry[0].lower()
         query = query.lower().strip()
         if not query:
             return True
@@ -199,7 +200,7 @@ class ZoxideDB:
             for e in self.entries if self._match(e, query)
         ]
         results.sort(reverse=True, key=lambda x: x[0])
-        return [e for _, e in results if os.path.exists(e["path"])]
+        return [e for _, e in results if os.path.exists(e[0])]
 
     def select(self, path):
         """
@@ -216,9 +217,9 @@ class ZoxideDB:
             True if path was found and updated, False otherwise.
         """
         for e in self.entries:
-            if e["path"].lower() == os.path.abspath(path).lower():
-                e["score"] += 1
-                e["last_access"] = self._now()
+            if e[0].lower() == os.path.abspath(path).lower():
+                e[1] += 1
+                e[2] = self._now()
                 self._save()
                 return True
         return False
@@ -242,15 +243,15 @@ if __name__ == "__main__":
         print("\nResults:")
         for idx, entry in enumerate(results):
             score = db._frecency(entry)
-            print(f"{idx+1}. {entry['path']} (score: {score})")
+            print(f"{idx+1}. {entry[0]} (score: {score})")
 
         sel = input("Select a result number to increment score (or Enter to skip): ").strip()
         if sel.isdigit():
             sel_idx = int(sel) - 1
             if 0 <= sel_idx < len(results):
-                db.select(results[sel_idx]['path'])
+                db.select(results[sel_idx][0])
                 new_score = db._frecency(results[sel_idx])
-                print(f"Score for '{results[sel_idx]['path']}' incremented. New score: {new_score}")
+                print(f"Score for '{results[sel_idx][0]}' incremented. New score: {new_score}")
             else:
                 print("Invalid selection.")
         else:

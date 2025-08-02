@@ -76,10 +76,14 @@ For example, "VisualZ".
 
 * **Close:** Press **Escape**.
 
+* **Change theme:** Press `Ctrl+t` (or `Control+t` on Mac) to cycle through available themes.
+
 ## Theming
 
-VisualZ uses a custom color palette for a modern look. You can modify the `themePalette` class in `visualz.pyw` to change colors.
+VisualZ uses a custom color palette for a modern look. You can add your own themes adding entries to the `themes.json` file in the same directory as `visualz.pyw`.
 You can take inspiration from [Color Hunt](https://colorhunt.co/) for color combinations.
+
+It is possible to change the theme by pressing `Ctrl+t` or `Control+t` (Mac) while VisualZ is running. This will cycle through the available themes in `themes.json`, the last theme being used will be saved for the next launch.
 
 ## Notes
 

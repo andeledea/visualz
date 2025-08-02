@@ -1,0 +1,23 @@
+{
+  "last_theme": "Pastel",
+  "themes": {
+    "Blallo": {
+      "dominant": "#113F67",
+      "accent": "#FDF5AA",
+      "secondary": "#34699A",
+      "font": "Cascadia Mono"
+    },
+    "DarkMode": {
+      "dominant": "#1E1E1E",
+      "accent": "#007ACC",
+      "secondary": "#252526",
+      "font": "Cascadia Mono"
+    },
+    "Pastel": {
+      "dominant": "#F3E2D4",
+      "accent": "#415E72",
+      "secondary": "#C5B0CD",
+      "font": "Cascadia Mono"
+    }
+  }
+}

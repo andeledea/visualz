@@ -3,22 +3,62 @@ from tkinter import ttk
 from tkinter import filedialog
 
 import os
+import json
 
 from zoxide import ZoxideDB
 
 # https://colorhunt.co/
 class themePalette:
+    font = ("Cascadia Mono", 12)
+    
     dominant = "#113F67"
     accent = "#FDF5AA"
     secondary = "#34699A"
+    
+    def from_file(self, file_path, next=False):
+        """
+        Load theme from a file if needed
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Theme file {file_path} does not exist.")
+        with open(file_path, "r", encoding="utf-8") as f:
+            all = json.load(f)
+            last_theme = all.get("last_theme", "Blallo")
+            all_themes = all["themes"]
+            
+        theme_name = last_theme
+        
+        if next:
+            theme_names = list(all_themes.keys())
+            if last_theme not in theme_names:
+                raise ValueError(f"Theme '{theme_name}' not found in {file_path}.")
+            next_index = (theme_names.index(last_theme) + 1) % len(theme_names)
+            theme_name = theme_names[next_index]
+        
+        if theme_name not in all_themes:
+            raise ValueError(f"Theme '{theme_name}' not found in {file_path}.")
+        
+        theme = all_themes[theme_name]
+        self.dominant = theme.get("dominant", self.dominant)
+        self.accent = theme.get("accent", self.accent)
+        self.secondary = theme.get("secondary", self.secondary)
+        self.font = (theme.get("font", self.font), 12)
+        
+        all["last_theme"] = theme_name
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(all, f, indent=2) 
+        return self
 
 # Initialize ZoxideDB
 db = ZoxideDB("zoxide_db.json")
 
+# set Theme
+current_theme = themePalette()
+
 def list_files(query):
     try:
         results = db.search(query)
-        valid_paths = [entry["path"] for entry in results]
+        valid_paths = [entry[0] for entry in results]
         valid_paths.append("Add directory to z")
         return valid_paths
     except Exception:
@@ -45,13 +85,7 @@ class VisualZApp(tk.Tk):
         self.geometry("500x150")
         self.overrideredirect(True)
         self.attributes('-topmost', True)
-        self.configure(bg=themePalette.dominant, highlightthickness=3, highlightcolor=themePalette.accent)
         self.bind("<FocusOut>", lambda e: self.focus_destroy())
-
-        s = ttk.Style()
-        s.theme_use("clam")
-        s.configure("TEntry", foreground=themePalette.dominant, fieldbackground=themePalette.accent, font=("Cascadia Mono", 12))
-        s.configure("TLabel", background=themePalette.dominant, foreground=themePalette.accent, font=("Segoe UI", 11, "bold"))
 
         self.update_idletasks()
         w = self.winfo_width()
@@ -63,28 +97,24 @@ class VisualZApp(tk.Tk):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
         self.search_var = tk.StringVar()
-        self.entry = ttk.Entry(self, textvariable=self.search_var, width=40, style="TEntry", font=("Cascadia Mono", 12))
+        
+        self.entry = ttk.Entry(self, textvariable=self.search_var, width=40)
         self.entry.pack(pady=15)
         self.entry.focus()
 
-        self.listbox = tk.Listbox(self, font=("Cascadia Mono", 12), height=3, bd=0, highlightthickness=0,
-                                  bg=themePalette.secondary, fg=themePalette.accent,
-                                  selectbackground=themePalette.accent, selectforeground=themePalette.dominant,
-                                  activestyle="none")
+        self.listbox = tk.Listbox(self, height=3, bd=0, highlightthickness=0, activestyle="none")
         self.listbox.pack(fill=tk.X, padx=20)
         self.listbox.pack_forget()
+        
+        self.change_theme(next=False)
 
         self.search_var.trace_add('write', self.on_search)
         self.entry.bind("<Down>", self.focus_listbox)
         self.entry.bind("<Tab>", self.select_next)
         self.entry.bind("<Shift-Tab>", self.select_previous)
         self.entry.bind("<Return>", self.open_selected)
+        self.entry.bind("<Control-t>", lambda e, n=True: self.change_theme(n))
         self.entry.bind("<Escape>", lambda e: self.destroy())
-        self.listbox.bind("<Return>", self.open_selected)
-        self.listbox.bind("<Tab>", self.select_next)
-        self.listbox.bind("<Shift-Tab>", self.select_previous)
-        self.listbox.bind("<Double-Button-1>", self.open_selected)
-        self.listbox.bind("<Escape>", lambda e: self.destroy())
 
         self.results = []
         
@@ -101,6 +131,19 @@ class VisualZApp(tk.Tk):
             return f"{drive}{os.sep}{first}{os.sep}...{os.sep}{last}{os.sep}{os.path.basename(path)}"
         else:
             return path
+        
+    def change_theme(self, next):
+        current_theme.from_file("themes.json", next)
+        
+        self.configure(bg=current_theme.dominant, highlightthickness=3, highlightcolor=current_theme.accent)
+        
+        s = ttk.Style()
+        s.theme_use("clam")
+        s.configure("TEntry", foreground=current_theme.dominant, fieldbackground=current_theme.accent, font=current_theme.font)
+
+        self.entry.configure(style="TEntry", font=current_theme.font)
+        self.listbox.configure(font=current_theme.font, bg=current_theme.secondary, fg=current_theme.accent,
+                               selectbackground=current_theme.accent, selectforeground=current_theme.dominant)
 
     def on_search(self, *args):
         query = self.search_var.get()
