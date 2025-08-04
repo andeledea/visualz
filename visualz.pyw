@@ -85,7 +85,7 @@ class VisualZApp(tk.Tk):
         self.geometry("500x150")
         self.overrideredirect(True)
         self.attributes('-topmost', True)
-        self.bind("<FocusOut>", lambda e: self.focus_destroy())
+        # self.bind("<FocusOut>", lambda e: self.focus_destroy())
 
         self.update_idletasks()
         w = self.winfo_width()

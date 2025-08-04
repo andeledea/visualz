@@ -85,6 +85,19 @@ You can take inspiration from [Color Hunt](https://colorhunt.co/) for color comb
 
 It is possible to change the theme by pressing `Ctrl+t` or `Control+t` (Mac) while VisualZ is running. This will cycle through the available themes in `themes.json`, the last theme being used will be saved for the next launch.
 
+If you want to add a new theme, you can do so by editing the `themes.json` file. The format is simple:
+
+```json
+{
+    "theme_name": {
+        "dominant": "#color",
+        "accent": "#color",
+        "secondary": "#color",
+        "font": "font_name"
+    }
+}
+``` 
+
 ## Notes
 
 * VisualZ is designed for Windows.
