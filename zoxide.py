@@ -28,6 +28,7 @@ class ZoxideDB:
         self.db_path = db_path
         self.max_age = max_age
         self.entries = []
+        self.last_rule = True  # Last component rule
         self._load()
 
     def _load(self):
@@ -135,6 +136,21 @@ class ZoxideDB:
                 return
         self.entries.append([path, 1, now])  # [path, score, last_access]
         self._save()
+        
+    def populate_by_traversing(self, root, regex=None):
+        """
+        Populate the database by traversing a directory tree.
+
+        Parameters
+        ----------
+        root : str
+            Root directory to start traversing.
+        """
+        for dirpath, _, _ in os.walk(root):
+            if regex:
+                if not regex.search(dirpath):
+                    continue
+            self.add(dirpath)
 
     def _match(self, entry, query):
         """
@@ -170,7 +186,7 @@ class ZoxideDB:
         # Last component rule
         last_query = terms[-1].split("/")[-1]
         last_path = os.path.basename(path)
-        if last_query not in last_path:
+        if last_query not in last_path and self.last_rule:
             return False
         return True
 

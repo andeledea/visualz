@@ -15,6 +15,8 @@ class themePalette:
     accent = "#FDF5AA"
     secondary = "#34699A"
     
+    theme_name = "None"
+    
     def from_file(self, file_path, next=False):
         """
         Load theme from a file if needed
@@ -26,25 +28,25 @@ class themePalette:
             last_theme = all.get("last_theme", "Blallo")
             all_themes: dict = all["themes"]
             
-        theme_name = last_theme
+        self.theme_name = last_theme
         
         if next:
             theme_names = list(all_themes.keys())
             if last_theme not in theme_names:
                 last_theme = list(all_themes)[-1]
             next_index = (theme_names.index(last_theme) + 1) % len(theme_names)
-            theme_name = theme_names[next_index]
+            self.theme_name = theme_names[next_index]
         
-        if theme_name not in all_themes:
-            theme_name = list(all_themes)[0]
+        if self.theme_name not in all_themes:
+            self.theme_name = list(all_themes)[0]
         
-        theme = all_themes[theme_name]
+        theme = all_themes[self.theme_name]
         self.dominant = theme.get("dominant", self.dominant)
         self.accent = theme.get("accent", self.accent)
         self.secondary = theme.get("secondary", self.secondary)
         self.font = (theme.get("font", self.font), 12)
         
-        all["last_theme"] = theme_name
+        all["last_theme"] = self.theme_name
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(all, f, indent=2) 
         return self
@@ -85,7 +87,7 @@ class VisualZApp(tk.Tk):
         self.geometry("500x150")
         self.overrideredirect(True)
         self.attributes('-topmost', True)
-        # self.bind("<FocusOut>", lambda e: self.focus_destroy())
+        self.bind("<FocusOut>", lambda e: self.focus_destroy())
 
         self.update_idletasks()
         w = self.winfo_width()
@@ -106,7 +108,11 @@ class VisualZApp(tk.Tk):
         self.listbox.pack(fill=tk.X, padx=20)
         self.listbox.pack_forget()
         
+        self.status_window = StatusWindow(self, current_theme, db)
+        self.help_window = HelpWindow(self, current_theme)
         self.change_theme(next=False)
+        self.status_window.destroy()
+        self.help_window.destroy()
 
         self.search_var.trace_add('write', self.on_search)
         self.entry.bind("<Down>", self.focus_listbox)
@@ -114,7 +120,9 @@ class VisualZApp(tk.Tk):
         self.entry.bind("<Shift-Tab>", self.select_previous)
         self.entry.bind("<Return>", self.open_selected)
         self.entry.bind("<Control-t>", lambda e, n=True: self.change_theme(n))
+        self.entry.bind("<Control-l>", self._toggle_last_rule)
         self.entry.bind("<Escape>", lambda e: self.destroy())
+        self.entry.bind("<Control-KeyPress>", lambda e: self.show_help(e))
 
         self.results = []
         
@@ -132,6 +140,11 @@ class VisualZApp(tk.Tk):
         else:
             return path
         
+    def _toggle_last_rule(self, *args):
+        db.last_rule = not db.last_rule
+        self.on_search()
+        self.show_status()
+        
     def change_theme(self, next):
         current_theme.from_file("themes.json", next)
         
@@ -147,12 +160,22 @@ class VisualZApp(tk.Tk):
                     highlightcolor=current_theme.secondary,
                     borderwidth=0,
                     insertcolor=current_theme.dominant,
-                    padding=(4, 0, 0, 0)
-                    )
+                    padding=(4, 0, 0, 0))
 
         self.entry.configure(style="TEntry", font=current_theme.font)
         self.listbox.configure(font=current_theme.font, bg=current_theme.secondary, fg=current_theme.accent, selectbackground=current_theme.accent, selectforeground=current_theme.dominant)
-
+        if next: self.show_status()
+        
+    def show_status(self):
+        if self.status_window and self.status_window.winfo_exists():
+            self.status_window.destroy()
+        self.status_window = StatusWindow(self, current_theme, db)
+        
+    def show_help(self, e):
+        if self.help_window and self.help_window.winfo_exists():
+            self.help_window.destroy()
+        self.help_window = HelpWindow(self, current_theme, key=None if e.keysym == "h" else e.keysym)
+        
     def on_search(self, *args):
         query = self.search_var.get()
         self.results = list_files(query)
@@ -224,6 +247,96 @@ class VisualZApp(tk.Tk):
             if path == "Add directory to z":
                 return
         self.destroy()
+        
+class StatusWindow(tk.Toplevel):
+    def __init__(self, master, current_theme, db):
+        super().__init__(master)
+        self.overrideredirect(True)
+        self.configure(bg=current_theme.dominant, highlightthickness=1, highlightcolor=current_theme.accent)
+
+        self.db = db
+        self.current_theme = current_theme
+        self.master = master
+
+        self.last_rule_label = tk.Label(self, text="", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=self.current_theme.font)
+        self.last_rule_label.pack(pady=5, padx=10)
+        
+        self.theme_label = tk.Label(self, text="", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=self.current_theme.font)
+        self.theme_label.pack(pady=5, padx=10)
+
+        self.update_status()
+
+    def update_status(self):
+        last_rule_status = "on" if self.db.last_rule else "off"
+        # pad the last rule status to 3 characters
+        last_rule_status = last_rule_status.ljust(3)
+        # pad or limit the theme name to 20 characters
+        theme_name = self.current_theme.theme_name[:6].ljust(6)
+        
+        self.last_rule_label.configure(text=f"Last Rule: {last_rule_status}")
+        self.theme_label.configure(text=f"Theme: {theme_name}")
+
+        self.update_idletasks()
+        master_x = self.master.winfo_x()
+        master_y = self.master.winfo_y()
+        master_width = self.master.winfo_width()
+        
+        self.geometry(f"+{master_x + (master_width - self.winfo_width())}+{master_y + self.master.winfo_height() + 10}")
+
+        self.after(2000, self.destroy)
+        
+class HelpWindow(tk.Toplevel):
+    """
+    A small window to display the available keyboard shortcuts.
+    """
+    def __init__(self, master, current_theme, key=None):
+        super().__init__(master)
+        self.overrideredirect(True)
+        self.configure(bg=current_theme.dominant, highlightthickness=1, highlightcolor=current_theme.accent)
+
+        self.master = master
+        self.current_theme = current_theme
+        
+        # Center the window relative to the master window
+        self.update_idletasks()
+        master_x = self.master.winfo_x()
+        master_y = self.master.winfo_y()
+        master_width = self.master.winfo_width()
+        master_height = self.master.winfo_height()
+
+        self.geometry(f"+{master_x}+{master_y + self.master.winfo_height() + 10}")
+
+        # Create a frame for the shortcuts
+        frame = tk.Frame(self, bg=current_theme.dominant)
+        frame.pack(padx=20, pady=10)
+
+        # Title Label
+        title_label = tk.Label(frame, 
+                               text="Keyboard Shortcuts" if not key else f"Unknown Shortcut: Ctrl + {key}", 
+                               bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font[0], 12, "bold"))
+        title_label.pack(pady=(0, 10))
+
+        # Shortcuts list
+        shortcuts = {
+            "Enter": "Open selected directory",
+            "Tab": "Select next item",
+            "Shift+Tab": "Select previous item",
+            "Ctrl + t": "Change theme",
+            "Ctrl + l": "Toggle last rule",
+            "Escape": "Close application",
+        }
+
+        for key, description in shortcuts.items():
+            shortcut_frame = tk.Frame(frame, bg=current_theme.dominant)
+            shortcut_frame.pack(fill=tk.X, pady=2)
+            
+            key_label = tk.Label(shortcut_frame, text=f"{key}:", anchor="w", width=15, bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font, 11, "bold"))
+            key_label.pack(side=tk.LEFT)
+            
+            desc_label = tk.Label(shortcut_frame, text=description, anchor="w", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font, 11))
+            desc_label.pack(side=tk.LEFT)
+            
+        self.after(5000, self.destroy)
 
 if __name__ == "__main__":
     app = VisualZApp()

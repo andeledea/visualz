@@ -22,9 +22,11 @@
 
 ## Dependencies
 
-* **Windows only** (for now)
+* **Windows tested** (for now)
 
 * **Python** (<https://www.python.org/downloads/>)
+
+* **Tkinter**
 
 ## Installation
 
@@ -74,7 +76,11 @@ For example, "VisualZ".
 
 * **Close:** Press **Escape**.
 
-* **Change theme:** Press `Ctrl+t` (or `Control+t` on Mac) to cycle through available themes.
+* **Change theme:** Press `Ctrl+t` to cycle through available themes.
+
+* **Toggle last rule:** Press `Ctrl+l` to toggle the last component matching rule see **algorithm.md**.
+
+* **Show help:** Press `Ctrl+h` to display available keyboard shortcuts.
 
 ## Theming
 
@@ -102,7 +108,7 @@ If you want to add a new theme, you can do so by editing the `themes.json` file.
 
 ## Notes
 
-* VisualZ is designed for Windows.
+* VisualZ is designed in Windows, should work in linux and macOs.
 
 * If you want a standalone `.exe`, use [PyInstaller](https://pyinstaller.org/en/stable/) with the `--windowed` option.
 
