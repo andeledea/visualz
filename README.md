@@ -36,8 +36,6 @@
 
 ## How to Launch VisualZ
 
-### Option 1: Shortcut with `pythonw.exe`
-
 1. **Create a shortcut**
 
 * Right-click in your folder, choose **New > Shortcut**.
@@ -82,6 +80,10 @@ For example, "VisualZ".
 
 VisualZ uses a custom color palette for a modern look. You can add your own themes adding entries to the `themes.json` file in the same directory as `visualz.pyw`.
 You can take inspiration from [Color Hunt](https://colorhunt.co/) for color combinations.
+
+<p align="center">
+<img width="387" height="125" alt="image" src="https://github.com/user-attachments/assets/a32d6bf0-dddb-471d-bc13-393e416d4270" />
+</p>
 
 It is possible to change the theme by pressing `Ctrl+t` or `Control+t` (Mac) while VisualZ is running. This will cycle through the available themes in `themes.json`, the last theme being used will be saved for the next launch.
 
