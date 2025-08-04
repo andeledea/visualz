@@ -24,19 +24,19 @@ class themePalette:
         with open(file_path, "r", encoding="utf-8") as f:
             all = json.load(f)
             last_theme = all.get("last_theme", "Blallo")
-            all_themes = all["themes"]
+            all_themes: dict = all["themes"]
             
         theme_name = last_theme
         
         if next:
             theme_names = list(all_themes.keys())
             if last_theme not in theme_names:
-                raise ValueError(f"Theme '{theme_name}' not found in {file_path}.")
+                last_theme = list(all_themes)[-1]
             next_index = (theme_names.index(last_theme) + 1) % len(theme_names)
             theme_name = theme_names[next_index]
         
         if theme_name not in all_themes:
-            raise ValueError(f"Theme '{theme_name}' not found in {file_path}.")
+            theme_name = list(all_themes)[0]
         
         theme = all_themes[theme_name]
         self.dominant = theme.get("dominant", self.dominant)
@@ -98,7 +98,7 @@ class VisualZApp(tk.Tk):
 
         self.search_var = tk.StringVar()
         
-        self.entry = ttk.Entry(self, textvariable=self.search_var, width=40)
+        self.entry = ttk.Entry(self, textvariable=self.search_var, width=40, justify="left")
         self.entry.pack(pady=15)
         self.entry.focus()
 
@@ -138,12 +138,20 @@ class VisualZApp(tk.Tk):
         self.configure(bg=current_theme.dominant, highlightthickness=3, highlightcolor=current_theme.accent)
         
         s = ttk.Style()
-        s.theme_use("clam")
-        s.configure("TEntry", foreground=current_theme.dominant, fieldbackground=current_theme.accent, font=current_theme.font)
+        s.theme_use("classic")
+        s.configure("TEntry", 
+                    foreground=current_theme.dominant, 
+                    fieldbackground=current_theme.accent, 
+                    font=current_theme.font, 
+                    highlightthickness=0, 
+                    highlightcolor=current_theme.secondary,
+                    borderwidth=0,
+                    insertcolor=current_theme.dominant,
+                    padding=(4, 0, 0, 0)
+                    )
 
         self.entry.configure(style="TEntry", font=current_theme.font)
-        self.listbox.configure(font=current_theme.font, bg=current_theme.secondary, fg=current_theme.accent,
-                               selectbackground=current_theme.accent, selectforeground=current_theme.dominant)
+        self.listbox.configure(font=current_theme.font, bg=current_theme.secondary, fg=current_theme.accent, selectbackground=current_theme.accent, selectforeground=current_theme.dominant)
 
     def on_search(self, *args):
         query = self.search_var.get()
