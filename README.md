@@ -10,13 +10,13 @@
 
 * **Instant search:** As you type, VisualZ's internal algorithm finds and shows matching directories from your history.
 
-* **Dropdown navigation:** Use **Tab** or **Down** to cycle results, and **Enter** to open the selected path in Explorer.
+* **Dropdown navigation:** Use **Tab** or **Shift+Tab** to cycle results, and **Enter** to open the selected path in Explorer.
 
 * **Add new directories:** If a folder is not in your history, you can optionally add it from the interface. After a while, the directory list will be populated with your most-visited folders.
 
 * **Always on top:** The window stays above other windows for quick access.
 
-* **Beautiful dark UI:** Custom title bar and modern styling.
+* **Beautiful UI:** Custom title bar and modern styling, see [theming](#theming) for details.
 
 * **No console window:** Launches as a GUI app without a terminal.
 
@@ -105,6 +105,7 @@ If you want to add a new theme, you can do so by editing the `themes.json` file.
     }
 }
 ``` 
+**Enjoy fast, beautiful folder search!**
 
 ## Notes
 
@@ -112,4 +113,8 @@ If you want to add a new theme, you can do so by editing the `themes.json` file.
 
 * If you want a standalone `.exe`, use [PyInstaller](https://pyinstaller.org/en/stable/) with the `--windowed` option.
 
-**Enjoy fast, beautiful folder search!**
+The database needs time to populate with your most-used folders so the first times using it you may not see many results and you will have to add directories manually. After a while, it will become more useful as it learns from your usage patterns. 
+If you want to quikly populate the database you can call the `populate_by_traversing` method in the `zoxide.py` file, this will traverse your filesystem starting from the root directory you provide and add all sub directories to the history. This is not recommended for large filesystems as it will fill the history with many directories you may never use reaching the max_age limit (see [algorithm.md](algorithm.md) for more details).
+
+We are currently working on a more efficient way to automatically populate the history based on your usage patterns or user preferences. **We are open to contributions and suggestions for improving this feature**.
+

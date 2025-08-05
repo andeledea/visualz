@@ -1,4 +1,5 @@
 zoxide_db.json
+temp*
 .vscode/
 __pycache__/
 *.pyc

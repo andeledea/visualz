@@ -165,6 +165,8 @@ class VisualZApp(tk.Tk):
         self.entry.configure(style="TEntry", font=current_theme.font)
         self.listbox.configure(font=current_theme.font, bg=current_theme.secondary, fg=current_theme.accent, selectbackground=current_theme.accent, selectforeground=current_theme.dominant)
         if next: self.show_status()
+        if self.help_window and self.help_window.winfo_exists():
+            self.help_window.destroy()
         
     def show_status(self):
         if self.status_window and self.status_window.winfo_exists():
