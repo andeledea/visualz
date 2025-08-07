@@ -14,7 +14,7 @@ class ZoxideDB:
     max_age : int, optional
         Maximum total score before aging entries (default: 10000).
     """
-    def __init__(self, db_path="zoxide_db.json", max_age=10000):
+    def __init__(self, config, db_path="zoxide_db.json", max_age=10000):
         """
         Initialize the ZoxideDB instance and load entries from file.
 
@@ -25,10 +25,23 @@ class ZoxideDB:
         max_age : int
             Maximum total score before aging entries.
         """
+        self.config = config
+        
         self.db_path = db_path
         self.max_age = max_age
         self.entries = []
-        self.last_rule = True  # Last component rule
+        self.last_rule = bool(config.get("LAST", "last_rule", fallback=True))  
+        
+        try:
+            from thefuzz import fuzz
+            self.fuzzy_threshold = int(config.get("LAST", "fuzzy_threshold", fallback=50))
+            self.fuzzy_scorer = lambda x, y: fuzz.partial_ratio(x, y)
+            self.fuzzy = bool(config.get("LAST", "fuzzy", fallback=False))
+            self.can_use_fuzzy = True
+        except ImportError:
+            self.fuzzy = False
+            self.can_use_fuzzy = False
+        
         self._load()
 
     def _load(self):
@@ -136,21 +149,6 @@ class ZoxideDB:
                 return
         self.entries.append([path, 1, now])  # [path, score, last_access]
         self._save()
-        
-    def populate_by_traversing(self, root, regex=None):
-        """
-        Populate the database by traversing a directory tree.
-
-        Parameters
-        ----------
-        root : str
-            Root directory to start traversing.
-        """
-        for dirpath, _, _ in os.walk(root):
-            if regex:
-                if not regex.search(dirpath):
-                    continue
-            self.add(dirpath)
 
     def _match(self, entry, query):
         """
@@ -189,6 +187,44 @@ class ZoxideDB:
         if last_query not in last_path and self.last_rule:
             return False
         return True
+    
+    def _fuzzy_match(self, entry, query):
+        """
+        Check if an entry matches the query using fuzzy matching.
+
+        Parameters
+        ----------
+        entry : dict
+            Entry to check.
+        query : str
+            Query string.
+
+        Returns
+        -------
+        bool
+            True if entry matches, False otherwise.
+        """
+        # if query is empty, match everything
+        if not query.strip():
+            return True
+        path = entry[0].lower()
+        query = query.lower().strip()
+        
+        terms = query.split()
+        scores = []
+        for term in terms:
+            scores.append(self.fuzzy_scorer(term, path))
+            
+        # Last component rule
+        last_query = terms[-1].split("/")[-1]
+        last_path = os.path.basename(path)
+        if self.fuzzy_scorer(last_query, last_path) < self.fuzzy_threshold and self.last_rule:
+            return False
+        
+        if max(scores) >= self.fuzzy_threshold:
+            return True
+        
+        return False
 
     def search(self, query):
         """
@@ -211,9 +247,12 @@ class ZoxideDB:
         """
         # self._prune()  # Uncomment to enable pruning (IMPORTANT: read note in _prune)
         self._age()
+        
+        fmatch = self._fuzzy_match if self.fuzzy else self._match
+        
         results = [
             (self._frecency(e), e)
-            for e in self.entries if self._match(e, query)
+            for e in self.entries if fmatch(e, query)
         ]
         results.sort(reverse=True, key=lambda x: x[0])
         return [e for _, e in results if os.path.exists(e[0])]
@@ -239,12 +278,40 @@ class ZoxideDB:
                 self._save()
                 return True
         return False
+    
+    def toggle_last_rule(self):
+        """
+        Toggle the last component rule.
+        """
+        self.last_rule = not self.last_rule
+        self.config.set("LAST", "last_rule", str(self.last_rule))
+        with open("config.ini", "w", encoding="utf-8") as configfile:
+            self.config.write(configfile)
+        return self.last_rule
+    
+    def toggle_fuzzy(self):
+        """
+        Toggle fuzzy matching.
+        """
+        self.fuzzy = not self.fuzzy
+        if not self.can_use_fuzzy and self.fuzzy:
+            self.fuzzy = False
+            print("Fuzzy matching is not available. Please install 'thefuzz' package.")
+        
+        self.config.set("LAST", "fuzzy", str(self.fuzzy))
+        with open("config.ini", "w", encoding="utf-8") as configfile:
+            self.config.write(configfile)
+        return self.fuzzy
 
 if __name__ == "__main__":
     """
     Simple interactive test for ZoxideDB.
     """
-    db = ZoxideDB("test_zoxide_db.json")
+    import configparser as cp
+    
+    config = cp.ConfigParser()
+    config.read("config.ini")
+    db = ZoxideDB(config, "test_zoxide_db.json")
 
     while True:
         query = input("\nEnter search query (or 'exit' to quit): ").strip()

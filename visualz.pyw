@@ -1,11 +1,15 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+import configparser as cp
 
 import os
 import json
 
 from zoxide import ZoxideDB
+
+config = cp.ConfigParser()
+config.read("config.ini")
 
 # https://colorhunt.co/
 class themePalette:
@@ -25,7 +29,7 @@ class themePalette:
             raise FileNotFoundError(f"Theme file {file_path} does not exist.")
         with open(file_path, "r", encoding="utf-8") as f:
             all = json.load(f)
-            last_theme = all.get("last_theme", "Blallo")
+            last_theme = config.get("LAST", "theme", fallback="Blallo")
             all_themes: dict = all["themes"]
             
         self.theme_name = last_theme
@@ -46,13 +50,12 @@ class themePalette:
         self.secondary = theme.get("secondary", self.secondary)
         self.font = (theme.get("font", self.font), 12)
         
-        all["last_theme"] = self.theme_name
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(all, f, indent=2) 
-        return self
+        config.set("LAST", "theme", self.theme_name)
+        with open("config.ini", "w", encoding="utf-8") as configfile:
+            config.write(configfile)
 
 # Initialize ZoxideDB
-db = ZoxideDB("zoxide_db.json")
+db = ZoxideDB(config, "zoxide_db.json")
 
 # set Theme
 current_theme = themePalette()
@@ -63,8 +66,8 @@ def list_files(query):
         valid_paths = [entry[0] for entry in results]
         valid_paths.append("Add directory to z")
         return valid_paths
-    except Exception:
-        print("Error searching zoxide database.")
+    except Exception as e:
+        print("Error searching zoxide database: ", e)
         return []
 
 def open_in_explorer(path):
@@ -121,6 +124,7 @@ class VisualZApp(tk.Tk):
         self.entry.bind("<Return>", self.open_selected)
         self.entry.bind("<Control-t>", lambda e, n=True: self.change_theme(n))
         self.entry.bind("<Control-l>", self._toggle_last_rule)
+        self.entry.bind("<Control-f>", self._toggle_fuzzy)
         self.entry.bind("<Escape>", lambda e: self.destroy())
         self.entry.bind("<Control-KeyPress>", lambda e: self.show_help(e))
 
@@ -141,7 +145,12 @@ class VisualZApp(tk.Tk):
             return path
         
     def _toggle_last_rule(self, *args):
-        db.last_rule = not db.last_rule
+        db.toggle_last_rule()
+        self.on_search()
+        self.show_status()
+    
+    def _toggle_fuzzy(self, *args):
+        db.toggle_fuzzy()
         self.on_search()
         self.show_status()
         
@@ -174,9 +183,10 @@ class VisualZApp(tk.Tk):
         self.status_window = StatusWindow(self, current_theme, db)
         
     def show_help(self, e):
-        if self.help_window and self.help_window.winfo_exists():
-            self.help_window.destroy()
-        self.help_window = HelpWindow(self, current_theme, key=None if e.keysym == "h" else e.keysym)
+        if e.keysym not in ["v"]:
+            if self.help_window and self.help_window.winfo_exists():
+                self.help_window.destroy()
+            self.help_window = HelpWindow(self, current_theme, key=None if e.keysym in ["h"] else e.keysym)
         
     def on_search(self, *args):
         query = self.search_var.get()
@@ -259,31 +269,25 @@ class StatusWindow(tk.Toplevel):
         self.db = db
         self.current_theme = current_theme
         self.master = master
-
-        self.last_rule_label = tk.Label(self, text="", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=self.current_theme.font)
-        self.last_rule_label.pack(pady=5, padx=10)
         
-        self.theme_label = tk.Label(self, text="", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=self.current_theme.font)
-        self.theme_label.pack(pady=5, padx=10)
+        self.labels = []
+
+        for entry in config["LAST"]:
+            label = tk.Label(self, text=f"{entry}: {config['LAST'][entry]}", bg=current_theme.dominant, fg=current_theme.accent, font=(current_theme.font[0], 11))
+            label.pack(pady=2)
+            self.labels.append(label)
 
         self.update_status()
 
     def update_status(self):
-        last_rule_status = "on" if self.db.last_rule else "off"
-        # pad the last rule status to 3 characters
-        last_rule_status = last_rule_status.ljust(3)
-        # pad or limit the theme name to 20 characters
-        theme_name = self.current_theme.theme_name[:6].ljust(6)
-        
-        self.last_rule_label.configure(text=f"Last Rule: {last_rule_status}")
-        self.theme_label.configure(text=f"Theme: {theme_name}")
+        for label in self.labels:
+            label.configure(bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font[0], 11))
 
-        self.update_idletasks()
         master_x = self.master.winfo_x()
         master_y = self.master.winfo_y()
         master_width = self.master.winfo_width()
         
-        self.geometry(f"+{master_x + (master_width - self.winfo_width())}+{master_y + self.master.winfo_height() + 10}")
+        self.geometry(f"+{master_x + (master_width - self.winfo_width()) + 10}+{master_y}")
 
         self.after(2000, self.destroy)
         
@@ -306,7 +310,7 @@ class HelpWindow(tk.Toplevel):
         master_width = self.master.winfo_width()
         master_height = self.master.winfo_height()
 
-        self.geometry(f"+{master_x}+{master_y + self.master.winfo_height() + 10}")
+        self.geometry(f"{master_width}x{self.winfo_height()}+{master_x}+{master_y + self.master.winfo_height() + 10}")
 
         # Create a frame for the shortcuts
         frame = tk.Frame(self, bg=current_theme.dominant)
@@ -325,17 +329,18 @@ class HelpWindow(tk.Toplevel):
             "Shift+Tab": "Select previous item",
             "Ctrl + t": "Change theme",
             "Ctrl + l": "Toggle last rule",
+            "Ctrl + f": "Toggle fuzzy matching",
             "Escape": "Close application",
         }
 
         for key, description in shortcuts.items():
             shortcut_frame = tk.Frame(frame, bg=current_theme.dominant)
-            shortcut_frame.pack(fill=tk.X, pady=2)
+            shortcut_frame.pack(fill=tk.X, pady=1)
             
-            key_label = tk.Label(shortcut_frame, text=f"{key}:", anchor="w", width=15, bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font, 11, "bold"))
+            key_label = tk.Label(shortcut_frame, text=f"{key}:", anchor="w", width=15, bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font, 10, "bold"))
             key_label.pack(side=tk.LEFT)
             
-            desc_label = tk.Label(shortcut_frame, text=description, anchor="w", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font, 11))
+            desc_label = tk.Label(shortcut_frame, text=description, anchor="w", bg=self.current_theme.dominant, fg=self.current_theme.accent, font=(self.current_theme.font, 10))
             desc_label.pack(side=tk.LEFT)
             
         self.after(5000, self.destroy)

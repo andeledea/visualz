@@ -1,5 +1,4 @@
 {
-  "last_theme": "Pourpople",
   "themes": {
     "Blallo": {
       "dominant": "#113F67",
@@ -37,5 +36,6 @@
       "secondary": "#C5B0CD",
       "font": "Cascadia Mono"
     }
-  }
+  },
+  "last_theme": "Blallo"
 }
